@@ -42,9 +42,6 @@ services:
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       PLATFORM_FEE_PERCENT: ${PLATFORM_FEE_PERCENT:-30}
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
 
 volumes:
   qualify-data:
