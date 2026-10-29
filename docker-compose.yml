@@ -37,7 +37,7 @@ services:
     environment:
       DATABASE_URL: *db-url
       PORT: 3100
-      APP_URL: ${APP_URL:-http://localhost:3100}
+      APP_URL: ${APP_URL:-http://66.116.244.109:3100}
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
