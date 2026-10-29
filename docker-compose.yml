@@ -11,39 +11,20 @@
 x-db-url: &db-url postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/qualify?schema=public
 
 services:
-  db:
-    image: postgres:16-alpine
-    container_name: qualify-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: qualify
-    ports:
-      # Exposed for local tools (psql, Prisma Studio). Change DB_PORT if 5432 is taken.
-      - "${DB_PORT:-5432}:5432"
-    volumes:
-      - qualify-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d qualify"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-
-  # Runs once: applies migrations, then loads demo data if the database is empty.
-  migrate:
-    build:
-      context: .
-      target: migrate
-    container_name: qualify-migrate
-    environment:
-      DATABASE_URL: *db-url
-      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
-      PLATFORM_FEE_PERCENT: ${PLATFORM_FEE_PERCENT:-30}
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: "no"
+#  # Runs once: applies migrations, then loads demo data if the database is empty.
+#  migrate:
+#    build:
+#      context: .
+#      target: migrate
+#    container_name: qualify-migrate
+#    environment:
+#      DATABASE_URL: *db-url
+#      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+#      PLATFORM_FEE_PERCENT: ${PLATFORM_FEE_PERCENT:-30}
+#    depends_on:
+#      db:
+#        condition: service_healthy
+#    restart: "no"
 
   app:
     build:
