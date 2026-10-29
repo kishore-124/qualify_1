@@ -1,0 +1,45 @@
+{
+  "name": "qualify",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Qualify - a full-featured online course platform (Udemy-style) built with Next.js, Bootstrap, Prisma and PostgreSQL",
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "postinstall": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "node prisma/seed.js",
+    "db:reset": "prisma migrate reset --force",
+    "db:studio": "prisma studio",
+    "docker:up": "docker compose up --build -d",
+    "docker:logs": "docker compose logs -f app",
+    "docker:down": "docker compose down",
+    "db:seed:if-empty": "node prisma/seed-if-empty.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^6.19.3",
+    "@prisma/client": "^6.1.0",
+    "bcryptjs": "^2.4.3",
+    "bootstrap": "^5.3.3",
+    "bootstrap-icons": "^1.11.3",
+    "chart.js": "^4.4.7",
+    "jose": "^5.9.6",
+    "next": "^15.1.0",
+    "pg": "^8.23.1",
+    "react": "^19.0.0",
+    "react-chartjs-2": "^5.3.0",
+    "react-dom": "^19.0.0",
+    "react-hot-toast": "^2.4.1",
+    "stripe": "^17.7.0",
+    "swagger-ui-dist": "^5.34.0"
+  },
+  "devDependencies": {
+    "prisma": "^6.1.0"
+  }
+}

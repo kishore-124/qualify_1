@@ -1,0 +1,411 @@
+// Qualify database schema
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters", "queryCompiler"]
+  engineType      = "client" // Rust-free client: no native engine binary needed
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  INSTRUCTOR
+  ADMIN
+}
+
+enum CourseStatus {
+  DRAFT
+  PENDING
+  PUBLISHED
+  REJECTED
+  SUSPENDED // taken down by an admin; only an admin can restore it
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED // can still learn, but instructor features, sales and payouts are paused
+  BANNED // cannot log in
+}
+
+enum ReportTarget {
+  COURSE
+  REVIEW
+  QUESTION
+  ANSWER
+  USER
+}
+
+enum ReportReason {
+  SPAM
+  INAPPROPRIATE
+  COPYRIGHT
+  MISLEADING
+  SCAM
+  LOW_QUALITY
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+enum Level {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  ALL_LEVELS
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum EarningStatus {
+  PENDING // waiting to be paid to the instructor
+  PAID // transferred to the instructor's Stripe account (or marked paid manually)
+  REVERSED // order was refunded
+}
+
+model User {
+  id            String            @id @default(cuid())
+  name          String
+  email         String            @unique
+  password      String
+  role          Role              @default(STUDENT)
+  avatar        String?
+  headline      String?
+  bio           String?           @db.Text
+  website       String?
+  // Stripe Connect (instructor payouts)
+  stripeAccountId String?         @unique
+  payoutsEnabled  Boolean         @default(false)
+  // Moderation
+  status          UserStatus      @default(ACTIVE)
+  statusReason    String?
+  statusChangedAt DateTime?
+  payoutsHeld     Boolean         @default(false)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  courses       Course[]          @relation("InstructorCourses")
+  enrollments   Enrollment[]
+  reviews       Review[]
+  wishlist      WishlistItem[]
+  cart          CartItem[]
+  orders        Order[]
+  progress      LectureProgress[]
+  questions     Question[]
+  answers       Answer[]
+  notes         Note[]
+  certificates  Certificate[]
+  notifications Notification[]
+  earnings      OrderItem[]       @relation("InstructorEarnings")
+  reportsFiled  Report[]          @relation("Reporter")
+  reportsHandled Report[]         @relation("ReportHandler")
+  adminActions  AdminAction[]
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  icon      String?
+  color     String?
+  createdAt DateTime @default(now())
+  courses   Course[]
+}
+
+model Course {
+  id            String         @id @default(cuid())
+  title         String
+  slug          String         @unique
+  subtitle      String?
+  description   String?        @db.Text
+  thumbnail     String?
+  previewVideo  String?
+  price         Float          @default(0)
+  discountPrice Float?
+  level         Level          @default(ALL_LEVELS)
+  language      String         @default("English")
+  status        CourseStatus   @default(DRAFT)
+  featured      Boolean        @default(false)
+  requirements  String[]       @default([])
+  outcomes      String[]       @default([])
+  tags          String[]       @default([])
+  avgRating     Float          @default(0)
+  reviewCount   Int            @default(0)
+  studentCount  Int            @default(0)
+  rejectReason  String?
+  instructorId  String
+  instructor    User           @relation("InstructorCourses", fields: [instructorId], references: [id], onDelete: Cascade)
+  categoryId    String?
+  category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  sections      Section[]
+  enrollments   Enrollment[]
+  reviews       Review[]
+  wishlist      WishlistItem[]
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  certificates  Certificate[]
+  questions     Question[]
+  coupons       Coupon[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([status])
+  @@index([instructorId])
+  @@index([categoryId])
+}
+
+model Section {
+  id        String    @id @default(cuid())
+  title     String
+  position  Int       @default(0)
+  courseId  String
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lectures  Lecture[]
+  createdAt DateTime  @default(now())
+
+  @@index([courseId])
+}
+
+model Lecture {
+  id          String            @id @default(cuid())
+  title       String
+  description String?           @db.Text
+  videoUrl    String?
+  resourceUrl String?
+  duration    Int               @default(0) // seconds
+  position    Int               @default(0)
+  isPreview   Boolean           @default(false)
+  sectionId   String
+  section     Section           @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  progress    LectureProgress[]
+  questions   Question[]
+  notes       Note[]
+  createdAt   DateTime          @default(now())
+
+  @@index([sectionId])
+}
+
+model Enrollment {
+  id             String    @id @default(cuid())
+  userId         String
+  courseId       String
+  progress       Int       @default(0) // percent 0-100
+  lastLectureId  String?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course         Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+}
+
+model LectureProgress {
+  id          String    @id @default(cuid())
+  userId      String
+  lectureId   String
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lecture     Lecture   @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lectureId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int
+  comment   String?  @db.Text
+  hidden    Boolean  @default(false) // hidden by a moderator
+  userId    String
+  courseId  String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, courseId])
+}
+
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, courseId])
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  userId    String
+  courseId  String
+  savedForLater Boolean @default(false)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, courseId])
+}
+
+model Coupon {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  discountPercent Int
+  maxUses         Int?
+  usedCount       Int       @default(0)
+  expiresAt       DateTime?
+  active          Boolean   @default(true)
+  courseId        String?
+  course          Course?   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
+}
+
+model Order {
+  id         String      @id @default(cuid())
+  userId     String
+  subtotal   Float
+  discount   Float       @default(0)
+  total      Float
+  couponCode String?
+  status     OrderStatus @default(PENDING)
+  paymentRef String?
+  currency        String  @default("usd")
+  stripeSessionId String? @unique
+  stripePaymentIntentId String?
+  stripeChargeId  String?
+  paidAt     DateTime?
+  refundedAt DateTime?
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items      OrderItem[]
+  createdAt  DateTime    @default(now())
+}
+
+model OrderItem {
+  id                String        @id @default(cuid())
+  orderId           String
+  courseId          String
+  price             Float // final price paid for this course
+  // Revenue split
+  instructorId      String?
+  platformFee       Float         @default(0)
+  instructorEarning Float         @default(0)
+  earningStatus     EarningStatus @default(PENDING)
+  stripeTransferId  String?
+  paidOutAt         DateTime?
+  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  course            Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  instructor        User?         @relation("InstructorEarnings", fields: [instructorId], references: [id], onDelete: SetNull)
+
+  @@index([instructorId, earningStatus])
+}
+
+model Question {
+  id        String   @id @default(cuid())
+  title     String
+  body      String?  @db.Text
+  userId    String
+  lectureId String
+  courseId  String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lecture   Lecture  @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  answers   Answer[]
+  createdAt DateTime @default(now())
+}
+
+model Answer {
+  id           String   @id @default(cuid())
+  body         String   @db.Text
+  isInstructor Boolean  @default(false)
+  userId       String
+  questionId   String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  timestamp Int      @default(0) // seconds into the video
+  userId    String
+  lectureId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lecture   Lecture  @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Certificate {
+  id       String   @id @default(cuid())
+  serial   String   @unique
+  userId   String
+  courseId String
+  issuedAt DateTime @default(now())
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+/// Something a user flagged for moderators to look at.
+model Report {
+  id           String       @id @default(cuid())
+  targetType   ReportTarget
+  targetId     String
+  reason       ReportReason
+  details      String?      @db.Text
+  status       ReportStatus @default(OPEN)
+  resolution   String?
+  reporterId   String
+  reporter     User         @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  handledById  String?
+  handledBy    User?        @relation("ReportHandler", fields: [handledById], references: [id], onDelete: SetNull)
+  createdAt    DateTime     @default(now())
+  resolvedAt   DateTime?
+
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+}
+
+/// Audit log of every moderation / admin action.
+model AdminAction {
+  id         String   @id @default(cuid())
+  adminId    String
+  admin      User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  action     String // e.g. course.approve, user.suspend
+  targetType String // COURSE, USER, REVIEW, QUESTION, ORDER, REPORT
+  targetId   String
+  targetName String?
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
