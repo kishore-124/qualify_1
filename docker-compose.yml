@@ -8,7 +8,7 @@
 # Settings come from your .env file (or the shell). Only the ones below are used here;
 # DATABASE_URL is always pointed at the bundled PostgreSQL container.
 
-x-db-url: &db-url postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/qualify?schema=public
+x-db-url: &db-url postgresql://postgres:Easybillo2026@66.116.244.109:5432/qualify?schema=public
 
 services:
 #  # Runs once: applies migrations, then loads demo data if the database is empty.
