@@ -52,11 +52,11 @@ services:
     container_name: qualify-app
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "3100:3100"
     environment:
       DATABASE_URL: *db-url
-      PORT: 5000
-      APP_URL: ${APP_URL:-http://localhost:5000}
+      PORT: 3100
+      APP_URL: ${APP_URL:-http://localhost:3100}
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
